@@ -1,5 +1,11 @@
 <p align="center"><img src="icon.png"/></p>
 
+> **Versione web (browser, iPad e telefono)**
+> Questo fork contiene anche una versione del city builder che gira nel browser, senza Godot: è il file `index.html`, con Three.js e i comandi touch.
+> Usa gli stessi modelli 3D (`models/`), le icone (`sprites/`) e il font (`fonts/`) del progetto originale; nella cartella `web/` ci sono Three.js e i suoni convertiti in MP3.
+> Per giocarci basta pubblicare il repository con GitHub Pages (Settings → Pages → branch `main`, cartella `/ (root)`).
+> Tocca per costruire, trascina con un dito per spostarti, due dita per zoom e rotazione. La città si salva da sola nel browser.
+
 # Starter Kit City Builder
 
 This package includes a basic template for a 3D city builder in Godot 4.6. Includes features like;

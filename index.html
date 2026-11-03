@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#b2bacc">
+<title>City Builder</title>
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  @font-face {
+    font-family: 'Lilita One';
+    src: url('fonts/lilita_one_regular.ttf') format('truetype');
+    font-display: swap;
+  }
+  :root {
+    --bg: #b2bacc;
+    --panel: rgba(255, 255, 255, 0.94);
+    --ink: #3b4057;
+    --muted: #7d839b;
+    --soft: #eceef5;
+    --accent: #f5a524;
+    --danger: #e5484d;
+    --shadow: 0 8px 28px rgba(38, 44, 70, 0.18);
+    --top: calc(env(safe-area-inset-top, 0px) + 12px);
+    --bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    --left: calc(env(safe-area-inset-left, 0px) + 12px);
+    --right: calc(env(safe-area-inset-right, 0px) + 12px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: var(--bg);
+    font-family: 'Lilita One', system-ui, sans-serif; color: var(--ink);
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    overscroll-behavior: none;
+  }
+  body { position: fixed; inset: 0; }
+  #scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+  button {
+    font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer;
+    touch-action: manipulation;
+  }
+  .hidden { display: none !important; }
+
+  /* ---------- Barra in alto ---------- */
+  #topbar {
+    position: absolute; top: var(--top); left: var(--left); right: var(--right);
+    display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none;
+  }
+  #topbar > * { pointer-events: auto; }
+  .cash {
+    position: relative; display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border-radius: 999px; padding: 6px 18px 6px 6px; box-shadow: var(--shadow);
+    font-size: 24px; line-height: 1;
+  }
+  .cash img { width: 34px; height: 34px; }
+  .cash.shake { animation: shake .4s; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); }
+  }
+  .spent {
+    position: absolute; left: 52px; top: 100%; font-size: 18px; color: var(--danger);
+    animation: rise 0.9s ease-out forwards; pointer-events: none; white-space: nowrap;
+  }
+  @keyframes rise { from { opacity: 1; transform: translateY(-4px); } to { opacity: 0; transform: translateY(14px); } }
+  .round-row { display: flex; gap: 10px; }
+  .round {
+    width: 48px; height: 48px; border-radius: 50%; background: var(--panel); box-shadow: var(--shadow);
+    display: grid; place-items: center;
+  }
+  .round svg { width: 24px; height: 24px; }
+  .round:active, .tool:active, .card:active { transform: scale(0.94); }
+
+  /* ---------- Menu ---------- */
+  #menu {
+    position: absolute; top: calc(var(--top) + 58px); right: var(--right); min-width: 230px;
+    background: var(--panel); border-radius: 18px; box-shadow: var(--shadow); padding: 8px;
+  }
+  #menu button {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    padding: 12px 14px; border-radius: 12px; font-size: 18px;
+  }
+  #menu button:active { background: var(--soft); }
+  #menu svg { width: 22px; height: 22px; flex: none; color: var(--muted); }
+  #menu hr { border: 0; height: 1px; background: var(--soft); margin: 4px 8px; }
+
+  /* ---------- Barra in basso ---------- */
+  #toolbar {
+    position: absolute; left: var(--left); right: var(--right); bottom: var(--bottom);
+    display: flex; gap: 10px; align-items: stretch; max-width: 1180px; margin: 0 auto;
+    background: var(--panel); border-radius: 22px; box-shadow: var(--shadow); padding: 10px;
+  }
+  .tools { display: flex; gap: 8px; flex: none; }
+  .tool {
+    width: 68px; border-radius: 16px; background: var(--soft);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    font-size: 14px; padding: 8px 0;
+  }
+  .tool svg { width: 28px; height: 28px; }
+  .tool.on { background: var(--danger); color: #fff; }
+  .strip-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  #selName { font-size: 16px; padding-left: 4px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #selName b { color: var(--ink); font-weight: normal; }
+  #strip {
+    display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; touch-action: pan-x;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 3px; margin: -3px;
+  }
+  #strip::-webkit-scrollbar { display: none; }
+  .card {
+    flex: none; width: 70px; border-radius: 14px; background: var(--soft);
+    display: flex; flex-direction: column; align-items: center; padding: 4px 0 6px;
+  }
+  .card canvas { width: 62px; height: 62px; display: block; }
+  .card .price { display: flex; align-items: center; gap: 3px; font-size: 14px; color: var(--muted); }
+  .card .price img { width: 14px; height: 14px; }
+  .card.sel { background: #fff; box-shadow: 0 0 0 3px var(--accent); }
+  .card.sel .price { color: var(--ink); }
+  .card.poor .price { color: var(--danger); }
+  .demolishing .card.sel { box-shadow: none; background: var(--soft); }
+
+  /* ---------- Avvisi, aiuto, finestre ---------- */
+  #toast {
+    position: absolute; top: calc(var(--top) + 64px); left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff; border-radius: 999px; padding: 10px 20px; font-size: 17px;
+    box-shadow: var(--shadow); transition: opacity .25s; opacity: 0; pointer-events: none; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+  #help, #dialog, #loading {
+    position: absolute; inset: 0; display: grid; place-items: center; padding: 24px;
+    background: rgba(59, 64, 87, 0.28);
+  }
+  .box {
+    width: min(440px, 100%); background: #fff; border-radius: 24px; box-shadow: var(--shadow); padding: 22px;
+  }
+  .box h2 { margin: 0 0 14px; font-size: 26px; font-weight: normal; }
+  .box p { margin: 0 0 18px; font-size: 18px; line-height: 1.35; }
+  .help-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; font-size: 18px; line-height: 1.3; }
+  .help-row svg { width: 34px; height: 34px; flex: none; color: var(--accent); }
+  .help-mouse { font-size: 14px; color: var(--muted); margin: 4px 0 18px; line-height: 1.4; }
+  .btn-row { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn {
+    border-radius: 14px; padding: 12px 20px; font-size: 18px; background: var(--soft);
+  }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.danger { background: var(--danger); color: #fff; }
+  #loading { background: var(--bg); }
+  #loading .inner { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+  #loading img { width: 96px; height: 96px; }
+  .bar { width: 220px; height: 12px; border-radius: 99px; background: rgba(255,255,255,.6); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .2s; }
+  #loadText { font-size: 18px; max-width: 360px; line-height: 1.35; }
+
+  @media (max-width: 560px) {
+    .tool { width: 56px; font-size: 12px; }
+    .card { width: 62px; }
+    .card canvas { width: 54px; height: 54px; }
+    .cash { font-size: 20px; }
+    .round { width: 44px; height: 44px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="scene" tabindex="0" aria-label="Mappa della città"></canvas>
+
+<div id="topbar">
+  <div class="cash" id="cash"><img src="sprites/coin.png" alt=""><span id="cashText">0</span></div>
+  <div class="round-row">
+    <button class="round" id="btnSound" aria-label="Audio">
+      <svg id="icoSoundOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+      <svg id="icoSoundOff" class="hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 6 6"/><path d="m22 9-6 6"/></svg>
+    </button>
+    <button class="round" id="btnCenter" aria-label="Centra la vista">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    </button>
+    <button class="round" id="btnMenu" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg>
+    </button>
+  </div>
+</div>
+
+<div id="menu" class="hidden">
+  <button id="mSample">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 21V9l5-3v15M8 21V4l7 3v14M15 21V11l6 2v8M2 21h20"/></svg>
+    Città d'esempio
+  </button>
+  <button id="mNew">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg>
+    Nuova città
+  </button>
+  <hr>
+  <button id="mHelp">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg>
+    Come si gioca
+  </button>
+</div>
+
+<div id="toolbar">
+  <div class="tools">
+    <button class="tool" id="btnRotate" aria-label="Ruota l'edificio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>
+      Ruota
+    </button>
+    <button class="tool" id="btnDemolish" aria-label="Rimuovi">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg>
+      Rimuovi
+    </button>
+  </div>
+  <div class="strip-wrap">
+    <div id="selName"></div>
+    <div id="strip"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="help" class="hidden">
+  <div class="box">
+    <h2>Come si gioca</h2>
+    <div class="help-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V10m0-1.5a1.5 1.5 0 0 1 3 0V11m0-1a1.5 1.5 0 0 1 3 0v4.5A6.5 6.5 0 0 1 11.5 21h-.6a6 6 0 0 1-4.6-2.2L3.6 15.5a1.6 1.6 0 0 1 2.4-2.1L9 16"/></svg>
+      <span>Scegli un pezzo in basso e <b>tocca la mappa</b> per costruirlo.</span>
+    </div>
+    <div class="help-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg>
+      <span><b>Trascina con un dito</b> per spostarti sulla mappa.</span>
+    </div>
+    <div class="help-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="3"/><circle cx="17" cy="12" r="3"/><path d="M7 5a9 9 0 0 1 10 0M17 19a9 9 0 0 1-10 0"/></svg>
+      <span><b>Con due dita</b> avvicini, allontani e ruoti la visuale.</span>
+    </div>
+    <div class="help-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>
+      <span><b>Ruota</b> gira il pezzo prima di posarlo, <b>Rimuovi</b> serve a toglierlo.</span>
+    </div>
+    <div class="help-mouse">Col computer: clic per costruire, trascina per spostarti, tasto destro per ruotare la visuale, rotellina per lo zoom. Tasti Q/E cambiano pezzo, R lo ruota, Canc lo toglie. La città si salva da sola.</div>
+    <div class="btn-row"><button class="btn primary" id="helpOk">Ho capito</button></div>
+  </div>
+</div>
+
+<div id="dialog" class="hidden">
+  <div class="box">
+    <p id="dlgText"></p>
+    <div class="btn-row">
+      <button class="btn" id="dlgNo">Annulla</button>
+      <button class="btn danger" id="dlgYes">Conferma</button>
+    </div>
+  </div>
+</div>
+
+<div id="loading">
+  <div class="inner">
+    <img src="icon.png" alt="">
+    <div class="bar"><i id="loadBar"></i></div>
+    <div id="loadText">Caricamento della città…</div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./web/lib/three/three.module.js",
+    "three/addons/": "./web/lib/three/addons/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+/* =========================================================
+   DATI DEL GIOCO
+   Stessi pezzi, prezzi e ordine del progetto Godot di Kenney
+   ========================================================= */
+
+const STRUCTURES = [
+  { file: 'road-straight',            name: 'Strada',              price: 25 },
+  { file: 'road-straight-lightposts', name: 'Strada con lampioni', price: 25 },
+  { file: 'road-corner',              name: 'Curva',               price: 25 },
+  { file: 'road-split',               name: 'Incrocio a T',        price: 25 },
+  { file: 'road-intersection',        name: 'Incrocio',            price: 25 },
+  { file: 'pavement',                 name: 'Piazza',              price: 10 },
+  { file: 'pavement-fountain',        name: 'Fontana',             price: 10 },
+  { file: 'building-small-a',         name: 'Palazzina A',         price: 50 },
+  { file: 'building-small-b',         name: 'Palazzina B',         price: 60 },
+  { file: 'building-small-c',         name: 'Palazzina C',         price: 70 },
+  { file: 'building-small-d',         name: 'Palazzina D',         price: 70 },
+  { file: 'building-garage',          name: 'Garage',              price: 70 },
+  { file: 'grass',                    name: 'Prato',               price: 10 },
+  { file: 'grass-trees',              name: 'Alberi',              price: 25 },
+  { file: 'grass-trees-tall',         name: 'Alberi alti',         price: 25 },
+];
+
+const START_CASH = 10000;
+
+// Città d'esempio di Kenney ("sample map/map.res"), convertita: [x, z, pezzo, rotazione]
+const SAMPLE_CITY = {
+  cash: 5860,
+  cells: [[-2,5,0,0],[-2,4,0,0],[-2,3,3,3],[-2,2,1,2],[-2,1,0,0],[-1,0,0,1],[-2,0,3,1],[0,0,0,1],[1,0,3,0],[2,0,0,1],[3,0,3,2],[4,0,0,1],[5,0,1,1],[-3,3,0,1],[-4,3,0,1],[-5,3,0,1],[-6,3,0,1],[-7,3,0,1],[-2,-1,0,2],[-2,-2,0,2],[-2,-3,0,2],[-2,-4,0,2],[-2,-5,0,2],[-1,-3,0,3],[0,-3,0,3],[1,-3,0,3],[2,-3,0,3],[3,-3,2,0],[3,-2,0,0],[3,-1,0,0],[1,2,0,0],[1,1,0,0],[1,3,0,0],[1,5,3,1],[1,6,0,0],[1,7,2,3],[1,4,0,0],[0,7,0,1],[-1,7,0,1],[-2,7,2,2],[-2,6,0,2],[2,5,0,3],[3,5,0,3],[4,5,3,2],[5,5,0,3],[6,4,0,0],[6,3,4,1],[6,2,0,0],[6,1,0,0],[6,0,2,0],[6,5,2,3],[4,3,2,1],[4,4,1,2],[5,3,0,3],[7,3,0,3],[8,3,3,0],[9,3,0,3],[0,6,8,1],[-1,6,5,2],[-1,5,5,2],[0,5,9,1],[0,4,10,1],[0,3,5,0],[0,2,5,3],[0,1,10,2],[-1,1,7,2],[-1,2,5,3],[-1,3,5,3],[-1,4,5,3],[2,3,8,3],[2,4,7,3],[3,4,5,0],[3,3,5,0],[2,2,7,1],[3,1,3,3],[4,2,5,0],[5,1,5,0],[4,1,5,0],[2,1,8,1],[3,2,0,0],[5,2,9,0],[5,4,6,1],[2,-1,10,0],[-1,-4,11,0],[0,-4,11,0],[1,-4,11,0],[-3,1,11,1],[-3,2,10,0],[4,-1,8,0],[5,-1,7,0],[6,-1,9,0],[7,2,7,0],[8,2,8,0],[7,4,11,1],[8,4,2,3],[-1,-2,12,3],[-1,-1,12,3],[0,-1,12,3],[0,-2,13,0],[1,-2,13,1],[1,-1,12,3],[2,-2,13,1],[7,-1,12,3],[7,0,14,1],[7,1,12,3],[3,6,13,3],[2,6,13,0],[4,6,13,3],[5,6,12,3],[2,7,14,0],[-3,4,14,0],[-3,5,12,3],[-3,6,12,3],[-3,7,12,3],[-4,4,12,3],[-4,2,14,1],[-5,2,12,3],[-3,0,12,3],[-3,-1,13,3],[-3,-2,13,0],[9,2,14,2],[7,5,14,2]],
+};
+
+const SAVE_KEY = 'city-builder-kenney-v1';
+const PREFS_KEY = 'city-builder-kenney-prefs';
+
+const PITCH = THREE.MathUtils.degToRad(35);   // inclinazione fissa della telecamera, come in Godot
+const ZOOM_MIN = 15, ZOOM_MAX = 80, ZOOM_START = 52;
+const LIMIT = 60;                             // quanto lontano dal centro ci si può spostare
+const SUN_DIR = new THREE.Vector3(0.583, 0.766, -0.272).normalize();
+
+/* =========================================================
+   MEMORIA DEL BROWSER (salvataggio automatico)
+   ========================================================= */
+
+function readJSON(key) {
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+function writeJSON(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* memoria piena o non disponibile: si gioca lo stesso */ }
+}
+const prefs = Object.assign({ sound: true, helpSeen: false }, readJSON(PREFS_KEY) || {});
+function savePrefs() { writeJSON(PREFS_KEY, prefs); }
+
+/* =========================================================
+   SCENA 3D
+   ========================================================= */
+
+const canvas = document.getElementById('scene');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+} catch (e) {
+  showLoadError('Questo dispositivo non riesce a mostrare la grafica 3D (WebGL non disponibile).');
+  throw e;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.2;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xb2bacc);
+
+function addLights(target, withShadows) {
+  const hemi = new THREE.HemisphereLight(0xffffff, 0xa4aabf, 2.1);
+  const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+  sun.position.copy(SUN_DIR).multiplyScalar(30);
+  if (withShadows) {
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.02;
+    sun.shadow.intensity = 0.75;
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 140;
+  }
+  target.add(hemi, sun, sun.target);
+  return sun;
+}
+const sun = addLights(scene, true);
+
+const camera = new THREE.PerspectiveCamera(20, 1, 0.5, 500);
+const view = { x: 0, z: 0, yaw: THREE.MathUtils.degToRad(45), zoom: ZOOM_START }; // dove vogliamo arrivare
+const cur = { ...view };                                                          // dove siamo ora (si avvicina con dolcezza)
+
+function applyCamera() {
+  const cp = Math.cos(PITCH);
+  camera.position.set(
+    cur.x + Math.sin(cur.yaw) * cp * cur.zoom,
+    Math.sin(PITCH) * cur.zoom,
+    cur.z + Math.cos(cur.yaw) * cp * cur.zoom
+  );
+  camera.lookAt(cur.x, 0, cur.z);
+  camera.updateMatrixWorld();
+
+  // l'ombra segue la parte di mappa inquadrata
+  const half = cur.zoom * 0.48 + 3;
+  const sc = sun.shadow.camera;
+  if (sc.right !== half) {
+    sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half;
+    sc.updateProjectionMatrix();
+  }
+  sun.target.position.set(cur.x, 0, cur.z);
+  sun.position.set(cur.x, 0, cur.z).addScaledVector(SUN_DIR, 60);
+  sun.target.updateMatrixWorld();
+  sun.updateMatrixWorld();
+}
+function syncCamera() { Object.assign(cur, view); applyCamera(); dirty = true; }
+function clampView() {
+  const d = Math.hypot(view.x, view.z);
+  if (d > LIMIT) { view.x *= LIMIT / d; view.z *= LIMIT / d; }
+  view.zoom = THREE.MathUtils.clamp(view.zoom, ZOOM_MIN, ZOOM_MAX);
+}
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  // in verticale allarghiamo il campo visivo, così si vede la stessa larghezza di mappa
+  camera.fov = camera.aspect >= 1 ? 20 : THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(10)) / camera.aspect));
+  // il centro della visuale va nello spazio libero tra la barra in alto e quella in basso
+  const bottomUsed = h - document.getElementById('toolbar').getBoundingClientRect().top;
+  const topUsed = document.getElementById('topbar').getBoundingClientRect().bottom;
+  const shift = Math.max(0, Math.round(bottomUsed - topUsed));
+  if (shift > 0) camera.setViewOffset(w, h + shift, 0, shift, w, h); else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
+  applyCamera();
+  dirty = true;
+}
+
+/* =========================================================
+   PEZZI DELLA CITTÀ
+   ========================================================= */
+
+const templates = [];          // un modello 3D pronto per ogni pezzo
+const tiles = new Map();       // "x,z" -> { s, r, obj }
+const tileRoot = new THREE.Group();
+scene.add(tileRoot);
+
+const state = { cash: START_CASH, sel: 0, rot: 0, demolish: false };
+
+const cellKey = (x, z) => x + ',' + z;
+
+function makeTile(s, r) {
+  const obj = templates[s].clone();
+  obj.rotation.y = r * Math.PI / 2;
+  return obj;
+}
+
+function placeTile(x, z, s, r, delay = -1) {
+  const k = cellKey(x, z);
+  const old = tiles.get(k);
+  if (old) tileRoot.remove(old.obj);
+  const obj = makeTile(s, r);
+  obj.position.set(x, 0, z);
+  tileRoot.add(obj);
+  tiles.set(k, { s, r, obj });
+  if (delay >= 0) popIn(obj, delay);
+}
+
+function clearCity() {
+  tileRoot.clear();
+  tiles.clear();
+  anims.length = 0;
+}
+
+function loadCity(data, animate) {
+  clearCity();
+  state.cash = Number.isFinite(data.cash) ? Math.round(data.cash) : START_CASH;
+  for (const c of data.cells || []) {
+    if (!Array.isArray(c) || c.length < 4) continue;
+    const [x, z, s, r] = c.map(Number);
+    if (!Number.isInteger(x) || !Number.isInteger(z) || !(s >= 0 && s < STRUCTURES.length) || !(r >= 0 && r < 4)) continue;
+    placeTile(x, z, s, r, animate ? Math.hypot(x, z) * 45 : -1);
+  }
+  updateCash(false);
+  dirty = true;
+}
+
+function serialize() {
+  const cells = [];
+  for (const [k, t] of tiles) {
+    const [x, z] = k.split(',').map(Number);
+    cells.push([x, z, t.s, t.r]);
+  }
+  return { v: 1, cash: state.cash, cells, cam: { x: view.x, z: view.z, yaw: view.yaw, zoom: view.zoom } };
+}
+let saveTimer = 0;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => writeJSON(SAVE_KEY, serialize()), 300);
+}
+
+/* ---------- Costruire e togliere ---------- */
+
+function build(x, z) {
+  const s = state.sel, r = state.rot;
+  const t = tiles.get(cellKey(x, z));
+  if (t && t.s === s) {
+    // stesso pezzo già lì: cambia solo l'orientamento, gratis (come nell'originale)
+    if (t.r !== r) {
+      t.r = r;
+      t.obj.rotation.y = r * Math.PI / 2;
+      popIn(t.obj, 0, 0.85);
+      play('rotate', 0.06);
+      scheduleSave();
+    }
+    return;
+  }
+  const price = STRUCTURES[s].price;
+  if (state.cash < price) {
+    toast('Non hai abbastanza monete');
+    const el = document.getElementById('cash');
+    el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+    return;
+  }
+  state.cash -= price;
+  placeTile(x, z, s, r, 0);
+  updateCash(true, price);
+  play('placement', 0.12);
+  scheduleSave();
+}
+
+function demolish(x, z) {
+  const k = cellKey(x, z);
+  const t = tiles.get(k);
+  if (!t) return;
+  tiles.delete(k);
+  shrinkOut(t.obj);
+  play('removal', 0.12);
+  scheduleSave();
+}
+
+function actAt(cell) {
+  if (!cell) return;
+  if (state.demolish) demolish(cell.x, cell.z); else build(cell.x, cell.z);
+}
+
+/* ---------- Piccole animazioni ---------- */
+
+const anims = [];
+const easeOutBack = t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+
+function popIn(obj, delay = 0, from = 0.45) {
+  obj.scale.setScalar(delay > 0 ? 0.0001 : from);
+  anims.push({ obj, kind: 'in', from, t0: performance.now() + delay, dur: 260 });
+  dirty = true;
+}
+function shrinkOut(obj) {
+  anims.push({ obj, kind: 'out', t0: performance.now(), dur: 160 });
+  dirty = true;
+}
+function runAnims(now) {
+  for (let i = anims.length - 1; i >= 0; i--) {
+    const a = anims[i];
+    if (now < a.t0) continue;
+    const p = Math.min(1, (now - a.t0) / a.dur);
+    if (a.kind === 'in') {
+      const s = a.from + (1 - a.from) * easeOutBack(p);
+      a.obj.scale.setScalar(s);
+      a.obj.position.y = (1 - p) * 0.25;
+    } else {
+      a.obj.scale.setScalar(Math.max(0.0001, 1 - p));
+      if (p >= 1) tileRoot.remove(a.obj);
+    }
+    if (p >= 1) { if (a.kind === 'in') { a.obj.scale.setScalar(1); a.obj.position.y = 0; } anims.splice(i, 1); }
+  }
+  return anims.length > 0;
+}
+
+/* =========================================================
+   CURSORE (la casella selezionata + anteprima del pezzo)
+   ========================================================= */
+
+const cursor = new THREE.Group();
+cursor.visible = false;
+scene.add(cursor);
+
+const selectorMat = new THREE.MeshBasicMaterial({
+  transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
+  color: new THREE.Color(1.7, 1.7, 1.7),
+});
+new THREE.TextureLoader().load('sprites/selector.png', tex => {
+  tex.colorSpace = THREE.SRGBColorSpace;
+  selectorMat.map = tex; selectorMat.needsUpdate = true; dirty = true;
+});
+const selectorMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.28, 1.28), selectorMat);
+selectorMesh.rotation.x = -Math.PI / 2;
+selectorMesh.position.y = 0.06;
+selectorMesh.renderOrder = 10;
+cursor.add(selectorMesh);
+
+const ghost = new THREE.Group();
+ghost.position.y = 0.25;
+cursor.add(ghost);
+
+const cursorCell = { x: 0, z: 0 };
+let cursorHideTimer = 0;
+
+function refreshGhost() {
+  ghost.clear();
+  if (!templates.length) return;
+  if (!state.demolish) ghost.add(makeTile(state.sel, state.rot));
+  selectorMat.color.set(state.demolish ? new THREE.Color(2.2, 0.35, 0.35) : new THREE.Color(1.7, 1.7, 1.7));
+  dirty = true;
+}
+function showCursor(cell, withGhost) {
+  clearTimeout(cursorHideTimer);
+  if (cell) { cursorCell.x = cell.x; cursorCell.z = cell.z; cursor.position.set(cell.x, 0, cell.z); }
+  ghost.visible = withGhost && !state.demolish;
+  cursor.visible = true;
+  dirty = true;
+}
+function hideCursor(delay = 0) {
+  clearTimeout(cursorHideTimer);
+  const doHide = () => { cursor.visible = false; dirty = true; };
+  if (delay) cursorHideTimer = setTimeout(doHide, delay); else doHide();
+}
+
+/* =========================================================
+   TOCCO, MOUSE E TASTIERA
+   ========================================================= */
+
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+function groundAt(clientX, clientY, out = new THREE.Vector3()) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  return raycaster.ray.intersectPlane(groundPlane, out);
+}
+function cellAt(clientX, clientY) {
+  const p = groundAt(clientX, clientY);
+  return p ? { x: Math.round(p.x), z: Math.round(p.z) } : null;
+}
+
+function panScreen(x0, y0, x1, y1) {
+  const a = groundAt(x0, y0), b = groundAt(x1, y1);
+  if (!a || !b) return;
+  view.x += a.x - b.x; view.z += a.z - b.z;
+  clampView(); syncCamera();
+}
+
+const pointers = new Map();
+let gesture = null;       // 'press' | 'pan' | 'rotate' | 'multi'
+let multi = null;
+let lastYawRendered = view.yaw;
+
+function twoPointers() {
+  const [a, b] = [...pointers.values()];
+  return { cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, d: Math.hypot(b.x - a.x, b.y - a.y), ang: Math.atan2(b.y - a.y, b.x - a.x) };
+}
+
+canvas.addEventListener('pointerdown', e => {
+  unlockAudio();
+  closeMenu();
+  canvas.focus({ preventScroll: true });
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const isMouse = e.pointerType === 'mouse';
+
+  if (pointers.size === 1) {
+    const mode = isMouse && (e.button === 1 || e.button === 2) ? 'rotate' : 'press';
+    gesture = { mode, sx: e.clientX, sy: e.clientY, mouse: isMouse };
+    if (mode === 'press') showCursor(cellAt(e.clientX, e.clientY), true);
+  } else if (pointers.size === 2) {
+    gesture = { mode: 'multi' };
+    multi = twoPointers();
+    hideCursor();
+  }
+});
+
+canvas.addEventListener('pointermove', e => {
+  const p = pointers.get(e.pointerId);
+  if (!p) {
+    // mouse che passa sopra la mappa senza premere: il cursore lo segue
+    if (e.pointerType === 'mouse') showCursor(cellAt(e.clientX, e.clientY), true);
+    return;
+  }
+  const px = p.x, py = p.y;
+  p.x = e.clientX; p.y = e.clientY;
+  if (!gesture) return;
+
+  if (gesture.mode === 'multi') {
+    if (pointers.size < 2) return;
+    const now = twoPointers();
+    const before = groundAt(multi.cx, multi.cy);
+    if (multi.d > 0 && now.d > 0) view.zoom = view.zoom * multi.d / now.d;
+    let da = now.ang - multi.ang;
+    if (da > Math.PI) da -= 2 * Math.PI; else if (da < -Math.PI) da += 2 * Math.PI;
+    view.yaw += da;
+    clampView(); syncCamera();
+    const after = groundAt(now.cx, now.cy);
+    if (before && after) { view.x += before.x - after.x; view.z += before.z - after.z; clampView(); syncCamera(); }
+    multi = now;
+    return;
+  }
+
+  if (gesture.mode === 'press') {
+    if (Math.hypot(e.clientX - gesture.sx, e.clientY - gesture.sy) < 10) return;
+    gesture.mode = 'pan';
+    if (gesture.mouse) showCursor(cellAt(e.clientX, e.clientY), true); else hideCursor();
+    panScreen(gesture.sx, gesture.sy, e.clientX, e.clientY);
+    return;
+  }
+  if (gesture.mode === 'pan') {
+    panScreen(px, py, e.clientX, e.clientY);
+    if (gesture.mouse) showCursor(cellAt(e.clientX, e.clientY), true);
+    return;
+  }
+  if (gesture.mode === 'rotate') {
+    view.yaw -= (e.clientX - px) * 0.008;
+    syncCamera();
+  }
+});
+
+function endPointer(e) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  const g = gesture;
+  if (g && g.mode === 'press' && e.type === 'pointerup' && pointers.size === 0) {
+    const cell = cellAt(e.clientX, e.clientY);
+    actAt(cell);
+    if (g.mouse) showCursor(cell, true);
+    else { showCursor(cell, false); hideCursor(450); }
+    dismissHelpAfterFirstBuild();
+  }
+  if (pointers.size === 1 && g && g.mode === 'multi') {
+    // resta un dito: si continua a spostare la mappa
+    const [p] = pointers.values();
+    gesture = { mode: 'pan', sx: p.x, sy: p.y, mouse: false };
+  } else if (pointers.size === 0) {
+    if (e.pointerType !== 'mouse' && !(g && g.mode === 'press')) hideCursor();
+    gesture = null;
+    scheduleSave();
+  }
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !pointers.size) hideCursor(); });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  view.zoom *= 1 + THREE.MathUtils.clamp(e.deltaY, -100, 100) * 0.0025;
+  clampView(); dirty = true; scheduleSave();
+}, { passive: false });
+
+// Safari: niente zoom della pagina con due dita fuori dalla mappa
+['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
+document.addEventListener('dblclick', e => e.preventDefault());
+
+const keys = new Set();
+window.addEventListener('keydown', e => {
+  if (!document.getElementById('dialog').classList.contains('hidden')) return;
+  const k = e.key.toLowerCase();
+  if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { keys.add(k); e.preventDefault(); }
+  else if (k === 'q') selectStructure((state.sel - 1 + STRUCTURES.length) % STRUCTURES.length);
+  else if (k === 'e') selectStructure((state.sel + 1) % STRUCTURES.length);
+  else if (k === 'r') rotateSelection();
+  else if (k === 'f') centerView();
+  else if (k === 'delete' || k === 'backspace') { if (cursor.visible) demolish(cursorCell.x, cursorCell.z); }
+});
+window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+window.addEventListener('blur', () => keys.clear());
+
+function keyboardPan(dt) {
+  if (!keys.size) return false;
+  let ix = 0, iz = 0;
+  if (keys.has('a') || keys.has('arrowleft')) ix -= 1;
+  if (keys.has('d') || keys.has('arrowright')) ix += 1;
+  if (keys.has('w') || keys.has('arrowup')) iz -= 1;
+  if (keys.has('s') || keys.has('arrowdown')) iz += 1;
+  if (!ix && !iz) return false;
+  const len = Math.hypot(ix, iz); ix /= len; iz /= len;
+  const c = Math.cos(view.yaw), s = Math.sin(view.yaw);
+  const speed = 12 * dt * (view.zoom / 30);
+  view.x += (ix * c + iz * s) * speed;
+  view.z += (-ix * s + iz * c) * speed;
+  clampView();
+  return true;
+}
+
+function centerView() {
+  // centro della città costruita (o il centro della mappa se è vuota)
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const k of tiles.keys()) {
+    const [x, z] = k.split(',').map(Number);
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+  }
+  view.x = tiles.size ? (minX + maxX) / 2 : 0;
+  view.z = tiles.size ? (minZ + maxZ) / 2 : 0;
+  view.zoom = ZOOM_START;
+  clampView(); dirty = true; scheduleSave();
+}
+
+/* =========================================================
+   BARRA DEI PEZZI E ANTEPRIME
+   ========================================================= */
+
+const strip = document.getElementById('strip');
+const cards = [];
+// col mouse la rotellina fa scorrere i pezzi in orizzontale
+strip.addEventListener('wheel', e => {
+  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { strip.scrollLeft += e.deltaY; e.preventDefault(); }
+}, { passive: false });
+const coinSrc = 'sprites/coin.png';
+
+function buildCards() {
+  STRUCTURES.forEach((st, i) => {
+    const b = document.createElement('button');
+    b.className = 'card';
+    b.setAttribute('aria-label', st.name + ', ' + st.price + ' monete');
+    const c = document.createElement('canvas');
+    c.width = 124; c.height = 124;
+    const pr = document.createElement('span');
+    pr.className = 'price';
+    pr.innerHTML = '<img src="' + coinSrc + '" alt="">' + st.price;
+    b.append(c, pr);
+    b.addEventListener('click', () => { unlockAudio(); selectStructure(i); });
+    strip.appendChild(b);
+    cards.push({ el: b, ctx: c.getContext('2d') });
+  });
+}
+
+function selectStructure(i) {
+  const changed = i !== state.sel || state.demolish;
+  state.sel = i;
+  setDemolish(false);
+  cards.forEach((c, j) => c.el.classList.toggle('sel', j === i));
+  cards[i].el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  updateSelName();
+  refreshGhost();
+  if (changed) play('toggle', 0.06);
+}
+
+function rotateSelection() {
+  state.rot = (state.rot + 1) % 4;
+  refreshGhost();
+  renderThumbs();
+  play('rotate', 0.06);
+}
+
+function setDemolish(on) {
+  state.demolish = on;
+  document.getElementById('btnDemolish').classList.toggle('on', on);
+  document.getElementById('toolbar').classList.toggle('demolishing', on);
+  updateSelName();
+  refreshGhost();
+}
+
+function updateSelName() {
+  const el = document.getElementById('selName');
+  if (state.demolish) el.innerHTML = '<b>Rimuovi</b> · tocca un pezzo per toglierlo';
+  else {
+    const st = STRUCTURES[state.sel];
+    el.innerHTML = '<b>' + st.name + '</b> · ' + st.price + ' monete';
+  }
+}
+
+// Anteprime: un piccolo secondo "fotografo" che riprende ogni pezzo
+// dalla stessa angolazione della mappa e con la rotazione scelta
+let thumbRenderer = null, thumbScene = null, thumbCam = null;
+function initThumbs() {
+  thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  thumbRenderer.setPixelRatio(1);
+  thumbRenderer.setSize(124, 124, false);
+  thumbRenderer.toneMapping = renderer.toneMapping;
+  thumbRenderer.setClearColor(0x000000, 0);
+  thumbScene = new THREE.Scene();
+  addLights(thumbScene, false);
+  thumbCam = new THREE.OrthographicCamera(-0.84, 0.84, 0.84, -0.84, 0.1, 50);
+}
+const thumbBox = new THREE.Box3(), thumbCenter = new THREE.Vector3(), thumbCorner = new THREE.Vector3();
+function frameThumb(obj) {
+  thumbBox.setFromObject(obj);
+  thumbBox.getCenter(thumbCenter);
+  const cp = Math.cos(PITCH);
+  thumbCam.position.set(Math.sin(cur.yaw) * cp, Math.sin(PITCH), Math.cos(cur.yaw) * cp).multiplyScalar(10).add(thumbCenter);
+  thumbCam.lookAt(thumbCenter);
+  thumbCam.updateMatrixWorld();
+  let half = 0;
+  for (let i = 0; i < 8; i++) {
+    thumbCorner.set(i & 1 ? thumbBox.max.x : thumbBox.min.x, i & 2 ? thumbBox.max.y : thumbBox.min.y, i & 4 ? thumbBox.max.z : thumbBox.min.z);
+    thumbCorner.applyMatrix4(thumbCam.matrixWorldInverse);
+    half = Math.max(half, Math.abs(thumbCorner.x), Math.abs(thumbCorner.y));
+  }
+  half = Math.max(0.55, half * 1.04);
+  thumbCam.left = -half; thumbCam.right = half; thumbCam.top = half; thumbCam.bottom = -half;
+  thumbCam.updateProjectionMatrix();
+}
+function renderThumbs() {
+  if (!thumbRenderer) return;
+  STRUCTURES.forEach((st, i) => {
+    const obj = makeTile(i, state.rot);
+    thumbScene.add(obj);
+    frameThumb(obj);
+    thumbRenderer.render(thumbScene, thumbCam);
+    const ctx = cards[i].ctx;
+    ctx.clearRect(0, 0, 124, 124);
+    ctx.drawImage(thumbRenderer.domElement, 0, 0, 124, 124);
+    thumbScene.remove(obj);
+  });
+  lastYawRendered = cur.yaw;
+}
+
+/* =========================================================
+   INTERFACCIA
+   ========================================================= */
+
+function formatCash(n) { return n.toLocaleString('it-IT'); }
+function updateCash(animate, spent) {
+  document.getElementById('cashText').textContent = formatCash(state.cash);
+  cards.forEach((c, i) => c.el.classList.toggle('poor', STRUCTURES[i].price > state.cash));
+  if (animate && spent) {
+    const s = document.createElement('span');
+    s.className = 'spent';
+    s.textContent = '−' + spent;
+    document.getElementById('cash').appendChild(s);
+    setTimeout(() => s.remove(), 900);
+  }
+}
+
+let toastTimer = 0;
+function toast(text) {
+  const t = document.getElementById('toast');
+  t.textContent = text;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+function confirmBox(text, yesLabel) {
+  return new Promise(resolve => {
+    const d = document.getElementById('dialog');
+    document.getElementById('dlgText').textContent = text;
+    const yes = document.getElementById('dlgYes'), no = document.getElementById('dlgNo');
+    yes.textContent = yesLabel;
+    d.classList.remove('hidden');
+    const done = v => { d.classList.add('hidden'); yes.onclick = no.onclick = null; resolve(v); };
+    yes.onclick = () => done(true);
+    no.onclick = () => done(false);
+  });
+}
+
+const menu = document.getElementById('menu');
+function closeMenu() { menu.classList.add('hidden'); }
+document.getElementById('btnMenu').addEventListener('click', () => { unlockAudio(); menu.classList.toggle('hidden'); });
+document.getElementById('btnCenter').addEventListener('click', () => { closeMenu(); centerView(); });
+document.getElementById('btnRotate').addEventListener('click', () => { unlockAudio(); closeMenu(); rotateSelection(); });
+document.getElementById('btnDemolish').addEventListener('click', () => {
+  unlockAudio(); closeMenu();
+  setDemolish(!state.demolish);
+  play('toggle', 0.06);
+});
+document.getElementById('mSample').addEventListener('click', async () => {
+  closeMenu();
+  if (tiles.size && !(await confirmBox('La città attuale verrà sostituita con quella d\'esempio. Vuoi continuare?', 'Sostituisci'))) return;
+  loadCity(SAMPLE_CITY, true); centerView(); scheduleSave();
+});
+document.getElementById('mNew').addEventListener('click', async () => {
+  closeMenu();
+  if (tiles.size && !(await confirmBox('Vuoi ricominciare da zero? La città attuale verrà cancellata.', 'Ricomincia'))) return;
+  loadCity({ cash: START_CASH, cells: [] }, false); centerView(); scheduleSave();
+});
+document.getElementById('mHelp').addEventListener('click', () => { closeMenu(); showHelp(); });
+
+function showHelp() { document.getElementById('help').classList.remove('hidden'); }
+document.getElementById('helpOk').addEventListener('click', () => {
+  unlockAudio();
+  document.getElementById('help').classList.add('hidden');
+  prefs.helpSeen = true; savePrefs();
+});
+function dismissHelpAfterFirstBuild() {
+  if (!prefs.helpSeen) { prefs.helpSeen = true; savePrefs(); }
+}
+
+/* =========================================================
+   SUONI (si attivano al primo tocco, come vuole Safari)
+   ========================================================= */
+
+let actx = null, master = null, ambience = null;
+const sounds = {};
+const SOUND_FILES = {
+  placement: ['placement-a', 'placement-b', 'placement-c', 'placement-d'],
+  removal: ['removal-a', 'removal-b', 'removal-c', 'removal-d'],
+  rotate: ['rotate'],
+  toggle: ['toggle'],
+};
+
+function unlockAudio() {
+  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try { actx = new AC(); } catch (e) { return; }
+  master = actx.createGain();
+  master.gain.value = prefs.sound ? 1 : 0;
+  master.connect(actx.destination);
+  const load = name => fetch('web/sounds/' + name + '.mp3')
+    .then(r => r.arrayBuffer())
+    .then(b => new Promise((ok, ko) => actx.decodeAudioData(b, ok, ko)));
+  for (const [group, names] of Object.entries(SOUND_FILES)) {
+    Promise.all(names.map(load)).then(bufs => { sounds[group] = bufs; }).catch(() => {});
+  }
+  load('ambience').then(buf => {
+    const src = actx.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    const g = actx.createGain(); g.gain.value = 0.05;
+    src.connect(g).connect(master);
+    src.start();
+    ambience = src;
+  }).catch(() => {});
+}
+
+function play(group, volume) {
+  if (!actx || !prefs.sound) return;
+  const list = sounds[group];
+  if (!list || !list.length) return;
+  const src = actx.createBufferSource();
+  src.buffer = list[Math.floor(Math.random() * list.length)];
+  src.playbackRate.value = 0.9 + Math.random() * 0.2;
+  const g = actx.createGain();
+  g.gain.value = volume;
+  src.connect(g).connect(master);
+  src.start();
+}
+
+function updateSoundIcon() {
+  document.getElementById('icoSoundOn').classList.toggle('hidden', !prefs.sound);
+  document.getElementById('icoSoundOff').classList.toggle('hidden', prefs.sound);
+}
+document.getElementById('btnSound').addEventListener('click', () => {
+  prefs.sound = !prefs.sound; savePrefs(); updateSoundIcon();
+  unlockAudio();
+  if (master) master.gain.value = prefs.sound ? 1 : 0;
+});
+
+/* =========================================================
+   CARICAMENTO E CICLO DI GIOCO
+   ========================================================= */
+
+function showLoadError(text) {
+  document.getElementById('loadText').textContent = text;
+  document.querySelector('#loading .bar').classList.add('hidden');
+  document.getElementById('loading').classList.remove('hidden');
+}
+
+let dirty = true;
+let last = performance.now();
+
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  let moving = keyboardPan(dt);
+  // la telecamera raggiunge con dolcezza la posizione voluta
+  const k = 1 - Math.exp(-dt * 10);
+  for (const p of ['x', 'z', 'yaw', 'zoom']) {
+    const diff = view[p] - cur[p];
+    if (Math.abs(diff) > 0.0005) { cur[p] += diff * k; moving = true; }
+    else cur[p] = view[p];
+  }
+  if (moving) { applyCamera(); dirty = true; }
+
+  if (runAnims(now)) dirty = true;
+
+  // anteprime riallineate quando la visuale è stata ruotata
+  if (!pointers.size && !moving && Math.abs(cur.yaw - lastYawRendered) > 0.01) { renderThumbs(); scheduleSave(); }
+
+  if (dirty) { renderer.render(scene, camera); dirty = false; }
+}
+
+async function start() {
+  const manager = new THREE.LoadingManager();
+  manager.onProgress = (url, loaded, total) => {
+    document.getElementById('loadBar').style.width = Math.round(loaded / total * 100) + '%';
+  };
+  const loader = new GLTFLoader(manager);
+  const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+  let gltfs;
+  try {
+    gltfs = await Promise.all(STRUCTURES.map(st => loader.loadAsync('models/' + st.file + '.glb')));
+  } catch (e) {
+    console.error(e);
+    showLoadError(location.protocol === 'file:'
+      ? 'Il gioco va aperto da un indirizzo web (per esempio GitHub Pages), non come file.'
+      : 'Non riesco a caricare i modelli della città. Controlla la connessione e ricarica la pagina.');
+    return;
+  }
+
+  gltfs.forEach(g => {
+    g.scene.traverse(o => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        o.receiveShadow = true;
+        if (o.material.map) o.material.map.anisotropy = maxAniso;
+      }
+    });
+    templates.push(g.scene);
+  });
+
+  buildCards();
+  initThumbs();
+
+  const saved = readJSON(SAVE_KEY);
+  if (saved && Array.isArray(saved.cells)) {
+    loadCity(saved, false);
+    if (saved.cam) {
+      for (const p of ['x', 'z', 'yaw', 'zoom']) if (Number.isFinite(saved.cam[p])) view[p] = saved.cam[p];
+      clampView();
+    }
+  } else {
+    loadCity(SAMPLE_CITY, true);
+    centerView();
+  }
+  Object.assign(cur, view);
+
+  selectStructure(0);
+  renderThumbs();
+  updateSoundIcon();
+  resize();
+
+  document.getElementById('loading').classList.add('hidden');
+  if (!prefs.helpSeen) showHelp();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+document.addEventListener('visibilitychange', () => {
+  if (!actx) return;
+  if (document.hidden) actx.suspend(); else actx.resume();
+});
+
+resize();
+start();
+</script>
+</body>
+</html>
